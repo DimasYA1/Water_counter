@@ -1,0 +1,37 @@
+entities:
+  - entity: sensor.counter_cold
+  - entity: sensor.counter_hot
+  - entities:
+      - entity: var.sended_counter_cold
+      - entity: var.sended_counter_hot
+    head: sensor.counter_sended
+    type: 'custom:fold-entity-row'
+  - entities:
+      - entity: switch.neptun
+      - entity: switch.neptun_bat
+    head: sensor.group_krans
+    type: 'custom:fold-entity-row'
+  - entities:
+      - entity: sensor.filter_cold
+      - entity: sensor.filter_hot
+      - entity: sensor.group_filter_kitchen
+      - entities:
+          - entity: var.filter_change_date
+          - action_name: Заменить
+            icon: 'mdi:wrench'
+            name: Замена фильтра
+            service: script.change_water_filter
+            type: call-service
+          - entity: var.filter_change_data_kitchen
+          - action_name: Заменить
+            icon: 'mdi:wrench'
+            name: Замена фильтра тонкой очистки
+            service: script.change_water_filter_kitchen
+            type: call-service
+        head: var.group_filter_service
+        type: 'custom:fold-entity-row'
+    head: sensor.group_filters
+    type: 'custom:fold-entity-row'
+show_header_toggle: false
+title: Вода
+type: entities
