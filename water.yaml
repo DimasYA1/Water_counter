@@ -1,0 +1,300 @@
+#---------------------------------------------------Включатели
+switch:
+#Нептун
+  - platform: mqtt
+    name: "Neptun"
+    command_topic: "home/bathroom/sensor/water/neptun/set"
+    state_topic: "home/bathroom/sensor/water/neptun/state"
+    payload_on: "ON"
+    payload_off: "OFF"
+    qos: 0
+    retain: true
+
+#Нептун батареи
+  - platform: mqtt
+    name: "Neptun_bat"
+    command_topic: "home/bathroom/water/neptun_bat/set"
+    state_topic: "home/bathroom/water/neptun_bat/state"
+    payload_on: "ON"
+    payload_off: "OFF"
+    qos: 0
+    retain: true
+
+#-----------------------------------------------------Датчики
+sensor:
+#Dатчик х/в
+ - platform: mqtt
+   state_topic: home/bathroom/sensor/water/counter_cold/state
+   name: "Counter Cold"
+   unit_of_measurement: "M3"
+
+#Датчик г/в
+ - platform: mqtt
+   state_topic: home/bathroom/sensor/water/counter_hot/state
+   name: "Counter hot"
+   unit_of_measurement: "M3"
+   
+#Дата отправки показаний
+ - platform: mqtt
+   state_topic: home/water/counter/sended
+   name: "Counter sended"
+
+ - platform: template
+   sensors:
+    filter_cold:
+       friendly_name: "Ресурс фильтра х/в"  
+       value_template: >-
+          {% if (80 - ((states.sensor.counter_cold.state | float) - (states.var.filter_counter_cold.state | float ))) > 0 %}
+             {{(100 / 80 * (80 - ((states.sensor.counter_cold.state | float) - (states.var.filter_counter_cold.state | float)))) | round(0)}}
+          {% else %}
+             0
+          {% endif %}
+       unit_of_measurement: '%'
+       
+ - platform: template
+   sensors:
+    filter_hot:
+       friendly_name: "Ресурс фильтра г/в"  
+       value_template: >-
+          {% if (50 - ((states.sensor.counter_hot.state | float) - (states.var.filter_counter_hot.state | float ))) > 0 %}
+             {{(100 / 50 * (50 - ((states.sensor.counter_hot.state | float) - (states.var.filter_counter_hot.state | float)))) | round(0)}}
+          {% else %}
+             0
+          {% endif %}
+       unit_of_measurement: '%'
+
+#Фильтр тонкой очистки
+ - platform: template
+   sensors:
+    group_filter_kitchen:
+       friendly_name: "Ресурс фильтра тонкой очистки"  
+       value_template: >-
+          {% if (as_timestamp(now())) - (as_timestamp(states.var.filter_kitchen.state)) < 31104000 %}
+             {{ ((31104000 - ((as_timestamp(now())) - (as_timestamp(states.var.filter_kitchen.state)))) * 100 / 31104000) | round(0)}}
+          {% else %}
+             0
+          {% endif %}
+       unit_of_measurement: '%'
+
+ - platform: template
+   sensors:
+    group_filters:
+       friendly_name: "Фильтры"  
+       value_template: >-
+          {% if states.sensor.filter_cold.state == '0' 
+          or
+          states.sensor.filter_hot.state == '0' 
+          or 
+          states.sensor.group_filter_kitchen.state == '0' 
+          %}
+          Необходима замена
+          {% else %}
+          В норме
+          {% endif %}
+       
+ - platform: template
+   sensors:
+    group_krans:
+       friendly_name: "Краны"  
+       value_template: >-
+          {% if states.switch.neptun.state == 'on' 
+          or
+          states.switch.neptun_bat.state == 'on'
+          %}
+          Перекрыты
+          {% else %}
+          Открыты
+          {% endif %}
+       
+#------------------------------------------------------------------------ Бинарные датчики
+binary_sensor:   
+ - platform: mqtt
+   name: "Water_Counter"
+   state_topic: home/bathroom/sensor/water/online
+   payload_on: "ON"
+   payload_off: "OFF"
+   off_delay: 120 #Задержка после которой состояние датчика будет обновляться обратно Off   
+   
+ - platform: mqtt
+   name: "Neptun_bat_online"
+   state_topic: home/bathroom/sensor/neptun_bat/status/state
+   payload_on: "ON"
+   payload_off: "OFF"
+   off_delay: 120 #Задержка после которой состояние датчика будет обновляться обратно Off   
+
+#--------------------------------------------------------------------------Переменные
+var:
+# Переменная паказания счетчика ХВ при замене фильтра
+  filter_counter_cold:
+    initial_value: 611.26
+    icon: mdi:air-filter
+# Переменная дата замены магистральных фильтров    
+  filter_change_date:
+    initial_value: '06.08.2019'
+
+    
+# Переменная паказания счетчика ГВ при замене фильтра
+  filter_counter_hot:
+    initial_value: 413.88
+    icon: mdi:air-filter
+    
+# Переменная дата замены фильтра тонкой очистки  (Для расчета)  
+  filter_kitchen:
+    initial_value: '2019-08-06 14:53:39.118758+03:00'
+    
+# Переменная дата замены фильтра тонкой очистки  (Для отображения)  
+  filter_change_data_kitchen:
+    initial_value: '06.08.2019'
+
+# Переменная паказания счетчика ХВ, отправленные в УК
+  sended_counter_cold:
+    initial_value: 616.82
+    icon: mdi:gauge
+    
+# Переменная паказания счетчика ГВ, отправленные в УК
+  sended_counter_hot:
+    initial_value: 418.37
+    icon: mdi:gauge
+    
+# Переменная Группа обслуживания
+  group_filter_service:
+    initial_value: 
+    icon: mdi:wrench
+        
+  
+script:
+# присвоение переменным текущих значений расхода воды
+  change_water_filter:
+        alias: "Замена фильтров воды"
+        sequence:
+          - service: var.set
+            data:
+              entity_id:
+                - var.filter_counter_cold
+              value_template: '{{states.sensor.counter_cold.state}}'
+          - service: var.set
+            data:
+              entity_id:
+                - var.filter_counter_hot
+              value_template: '{{states.sensor.counter_hot.state}}'
+          - service: var.set
+            data:
+              entity_id:
+                - var.filter_change_date
+              value_template: '{{now().day}}.{{now().month}}.{{ now().year }}'
+              
+# присвоение переменной текущей даты            
+  change_water_filter_kitchen:
+        alias: "Замена фильтра тонкой очистки воды"
+        sequence:
+          - service: var.set
+            data:
+              entity_id:
+                - var.filter_kitchen
+              value_template: '{{now()}}'
+          - service: var.set
+            data:
+              entity_id:
+                - var.filter_change_data_kitchen
+              value_template: '{{now().day}}.{{now().month}}.{{ now().year }}'
+
+automation:
+#------------------------------------------- Уведомление о перекрытии кранов
+  - alias: Перекрыть краны
+#    hide_entity: true
+    initial_state: true
+    trigger:
+      platform: mqtt
+      topic: home/bathroom/sensor/water/neptun/state
+      payload: 'ON'
+    action:
+     - service: mqtt.publish
+       data:
+         topic: home/water/neptun_bat/set
+         payload_template: 'ON'
+         retain: true
+     - service: notify.android
+       data:
+         title: Событие дома
+         message: Краны перекрыты!
+     - service: notify.email_notifier
+       data:
+         title: Событие дома
+         message: 'Внимание!
+
+          Краны воды перекрыты!
+
+          Время срабатывания {{now().day}}.{{now().month}}.{{now().year}}  {{now().hour}}:{{now().minute}}:{{now().second}}'
+          
+#-------------------------------------------Отправка показаний в УК
+  - alias: Отправка показаний воды в УК
+    initial_state: true
+    trigger:
+    - platform: template
+      value_template: '{{ now().strftime("%d") == "22" }}'
+    action:
+     - service: notify.uksender
+       data:
+         title: Показания счетчиков воды кв НОМЕР_КВАРТИРЫ за {{now().day}}.{{now().month}}.{{now().year}}
+         message: 'ПОКАЗАНИЯ СЧЕТЧИКОВ НА {{now().day}}.{{now().month}}.{{ now().year
+          }}
+          АДРЕС КВАРТИРЫ
+          
+          Счетчик ХВ 
+
+          {{ states(''sensor.counter_cold'')|float }} м3
+
+          Cчетчик ГВ 
+
+          {{ states(''sensor.counter_hot'')|float }} м3
+
+
+          Дата снятия  {{now().day}}.{{now().month}}.{{ now().year }}'
+     - service: mqtt.publish
+       data:
+         topic: home/water/counter/sended
+         payload_template: '{{now().day}}.{{now().month}}.{{ now().year }}'
+         retain: true
+     - service: var.set
+       data:
+         entity_id:
+             - var.sended_counter_cold
+         value_template: '{{states.sensor.counter_cold.state}}'
+     - service: var.set
+       data:
+         entity_id:
+             - var.sended_counter_hot
+         value_template: '{{states.sensor.counter_hot.state}}'
+     - service: notify.android
+       data:
+         title: Событие дома
+         message: Показания воды отправлены в УК
+         target: My_phone
+
+  - alias: Счетчик воды оффлайн
+#    hide_entity: true
+    initial_state: true
+    trigger:
+      platform: state
+      entity_id: binary_sensor.water_counter
+      to: 'off'
+    action:
+     - service: notify.android
+       data:
+         title: Событие дома
+         message: Счетчик воды оффлайн
+         target: My_phone
+         
+  - alias: Батарея оффлайн
+#    hide_entity: true
+    initial_state: true
+    trigger:
+      platform: state
+      entity_id: binary_sensor.neptun_bat_online
+      to: 'off'
+    action:
+     - service: notify.android
+       data:
+         title: Событие дома
+         message: Батарея оффлайн
+         target: My_phone
