@@ -26,7 +26,7 @@ Adafruit_ADS1115 ads(0x48);
 //Топики                     
 #define CONTROL_TOPIC            MAIN_TOPIC "/" ROOM "/" DEVICE_TYPE "/" CLIENT_ID "/#"  //"home/hall/cover/Roller_NG_1/#"
 #define HA_CONFIG_TOPIC          HOME_ASSISTANT_TOPIC "/" DEVICE_TYPE "/" CLIENT_ID "/config"
-#define ONLINE_TOPIC             MAIN_TOPIC "/online"
+#define ONLINE_TOPIC             MAIN_TOPIC "/" ROOM "/" DEVICE_TYPE "/" CLIENT_ID "/online"
 #define COLD_COMMAND_TOPIC            MAIN_TOPIC "/" ROOM "/" DEVICE_TYPE "/" CLIENT_ID "/counter_cold/set"
 #define HOT_COMMAND_TOPIC            MAIN_TOPIC "/" ROOM "/" DEVICE_TYPE "/" CLIENT_ID "/counter_hot/set"
 #define NEPTUN_COMMAND_TOPIC            MAIN_TOPIC "/" ROOM "/" DEVICE_TYPE "/" CLIENT_ID "/neptun/set"
